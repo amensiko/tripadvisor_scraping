@@ -88,9 +88,16 @@ def review_photo_titles():
 				soup = BeautifulSoup(page_response,	"html.parser")
 			
 				#Find the last page of reviews for a given hotel
-				for link in soup.find_all('a', {'pageNum last taLnk '}):
-					page_number = link.get('data-page-number')
-					last_offset_rev = int(page_number) * 5
+				#for link in soup.find_all('a', {'class': ['last', 'pageNum']}):
+				#	page_number = link.get('data-page-number')
+					#print('**********', page_number)
+				#	last_offset_rev = int(page_number) * 5
+				
+				for link in soup.select('a.last.pageNum'):
+					if link.get('href') != '':
+						last_offset_rev = int(link.text) * 5
+
+				print("REVIEW OFFSET: ", last_offset_rev)
 
 				for review_offset in range(0, last_offset_rev+1, 5):
 					print('--- review page offset:', review_offset, '---')
@@ -104,7 +111,7 @@ def review_photo_titles():
 						photo_present = review.findAll('div', {'class': 'photoContainer'})
 						if photo_present:
 							item = {
-								'hotel_name': soup.find('h1', {'class': 'ui_header h1'}).text,#soup.find('h1', class_='heading_title'),
+								'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
 								'review_title': review.find('span', class_='noQuotes').text,
 								'review_body': review.find('p', class_='partial_entry').text,
 								#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
