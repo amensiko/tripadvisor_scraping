@@ -7,13 +7,7 @@ import re
 import sys
 import warnings 
 import requests
-import dryscrape
-from PyQt5.QtGui import *  
-from PyQt5.QtCore import * 
-from PyQt5.QtCore import QEventLoop
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtWebEngineWidgets import QWebEnginePage
-from PyQt5.QtWidgets import QApplication 
+import csv
 from lxml import html
 
 if not sys.warnoptions:
@@ -52,6 +46,13 @@ def hotel_info_to_json(soup):
 
 	with open(hotel_json["name"].replace('/', '') + ".json", 'w') as outfile:
 		json.dump(hotel_json, outfile, indent=4)
+
+
+def hotel_info_to_csv(results):
+	with open('photo_titles_dc.csv', 'wb') as res_file:
+		for item in results:
+			res_file.write(item)
+			res_file.write('\n')
 
 
 def review_photo_titles():
@@ -110,41 +111,36 @@ def review_photo_titles():
 					for idx, review in enumerate(soup.find_all('div', class_='review-container')):
 						photo_present = review.findAll('div', {'class': 'photoContainer'})
 						if photo_present:
-							item = {
-								'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
-								'review_title': review.find('span', class_='noQuotes').text,
-								'review_body': review.find('p', class_='partial_entry').text,
-								#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
-								'num_reviews_reviewer': review.find('span', class_='badgetext').text,
-								#'reviewer_name': review.find('span', class_='scrname').text,
-								#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
-							}
+							if soup.find('h1', {'class': 'ui_header'}) != None:
+								item = {
+									'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
+									'review_title': review.find('span', class_='noQuotes').text,
+									'review_body': review.find('p', class_='partial_entry').text,
+									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
+									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
+									#'reviewer_name': review.find('span', class_='scrname').text,
+									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
+								}
+							else:
+								item = {
+									'hotel_name': 'None',
+									'review_title': review.find('span', class_='noQuotes').text,
+									'review_body': review.find('p', class_='partial_entry').text,
+									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
+									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
+									#'reviewer_name': review.find('span', class_='scrname').text,
+									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
+								}
 
+							print(item)
 							results.append(item) # <--- add to global list
 							#~ yield item
-							for key,val in item.items():
-								print(key, ':', val)
-							print('----')
+							#for key,val in item.items():
+								#print(key, ':', val)
+							#print('----')
+	return results
 
-					"""
 
-					photo_page_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page + "#photos;aggregationId=&albumid=107&filter=7", context=ctx).read()
-					photo_soup = BeautifulSoup(photo_page_response,	"html.parser")
-
-					#hotel_info(soup)
-					for ph in soup.findAll('img', {'class': 'centeredImg'}):
-						digits = re.findall(r'\d+',str(ph))
-						ph_id = ""
-						for d in digits:
-							if len(d) >= 8:
-								ph_id = d
-						if len(ph_id) == 0:
-							continue
-						photo_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page + "#photos;aggregationId=&albumid=107&filter=7&ff=" + ph_id, context=ctx).read()
-						photo_single_soup = BeautifulSoup(photo_response, "html.parser")
-
-						photo_title = photo_single_soup.findAll('div', {'class': 'captionText'})
-					"""
-		
-review_photo_titles()
+results = review_photo_titles()
+hotel_info_to_csv(results)
 
