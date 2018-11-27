@@ -50,7 +50,7 @@ def hotel_info_to_json(soup):
 
 def hotel_info_to_csv(results):
 	keys = results[0].keys()
-	with open('photo_titles_dc.csv', 'w') as res_file:
+	with open('photo_titles_dc_small3.csv', 'w') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writeheader()
 		dict_writer.writerows(results)
@@ -58,9 +58,10 @@ def hotel_info_to_csv(results):
 
 def write_item_to_csv(item):
 	keys = item.keys()
-	with open('photo_titles_dc_v2.csv', 'a') as res_file:
+	with open('photo_titles_dc_small_v2.csv', 'a') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writerow(item)
+
 
 
 def review_photo_titles():
@@ -79,7 +80,7 @@ def review_photo_titles():
 
 	digit = lambda x: int(filter(str.isdigit, x) or 0)
 	results = list()
-	for offset in range(0, last_offset+1, 30):
+	for offset in range(1): #range(0, last_offset+1, 30):
 		print('--- page offset:', offset, '---')
 
 		url = 'https://www.tripadvisor.com/Hotels-g28970-oa' + str(offset) + '-Washington_DC_District_of_Columbia-Hotels.html'
@@ -93,58 +94,61 @@ def review_photo_titles():
 		if links:
 			count = 0           
 			for next_page in links:
-				page_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page, context=ctx).read()
-				soup = BeautifulSoup(page_response,	"html.parser")
+				if count == 0:
+					count += 1
+					page_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page, context=ctx).read()
+					soup = BeautifulSoup(page_response,	"html.parser")
 			
 				#Find the last page of reviews for a given hotel
 				#for link in soup.find_all('a', {'class': ['last', 'pageNum']}):
 				#	page_number = link.get('data-page-number')
 					#print('**********', page_number)
 				#	last_offset_rev = int(page_number) * 5
+					last_offset_rev = 0
 				
-				for link in soup.select('a.last.pageNum'):
-					if link.get('href') != '':
-						last_offset_rev = int(link.text) * 5
+					for link in soup.select('a.last.pageNum'):
+						if link.get('href') != '':
+							last_offset_rev = int(link.text) * 5
 
-				print("REVIEW OFFSET: ", last_offset_rev)
+					print("REVIEW OFFSET: ", last_offset_rev)
 
-				for review_offset in range(0, last_offset_rev+1, 5):
-					print('--- review page offset:', review_offset, '---')
-					ind = next_page.find("Reviews")
+					for review_offset in range(0, 50, 5): #for review_offset in range(0, last_offset_rev+1, 5):
+						print('--- review page offset:', review_offset, '---')
+						ind = next_page.find("Reviews")
 
-					url = "https://www.tripadvisor.com" + next_page[:ind+7] + "-or" + str(review_offset) + next_page[ind+7:]
-					r = requests.get(url)
-					soup = BeautifulSoup(r.text, "html.parser")
+						url = "https://www.tripadvisor.com" + next_page[:ind+7] + "-or" + str(review_offset) + next_page[ind+7:]
+						r = requests.get(url)
+						soup = BeautifulSoup(r.text, "html.parser")
 
-					for idx, review in enumerate(soup.find_all('div', class_='review-container')):
-						photo_present = review.findAll('div', {'class': 'photoContainer'})
-						if photo_present:
-							if soup.find('h1', {'class': 'ui_header'}) != None:
-								item = {
-									'url': url,
-									'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
-									'review_title': review.find('span', class_='noQuotes').text,
-									'review_body': review.find('p', class_='partial_entry').text,
+						for idx, review in enumerate(soup.find_all('div', class_='review-container')):
+							photo_present = review.findAll('div', {'class': 'photoContainer'})
+							if photo_present:
+								if soup.find('h1', {'class': 'ui_header'}) != None:
+									item = {
+										'hotel_url': url,
+										'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
+										'review_title': review.find('span', class_='noQuotes').text,
+										'review_body': review.find('p', class_='partial_entry').text,
 									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
-									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
+										'num_reviews_reviewer': review.find('span', class_='badgetext').text,
 									#'reviewer_name': review.find('span', class_='scrname').text,
 									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
-								}
-							else:
-								item = {
-									'url': url,
-									'hotel_name': 'None',
-									'review_title': review.find('span', class_='noQuotes').text,
-									'review_body': review.find('p', class_='partial_entry').text,
+									}
+								else:
+									item = {
+										'hotel_url': url,
+										'hotel_name': 'None',
+										'review_title': review.find('span', class_='noQuotes').text,
+										'review_body': review.find('p', class_='partial_entry').text,
 									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
-									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
+										'num_reviews_reviewer': review.find('span', class_='badgetext').text,
 									#'reviewer_name': review.find('span', class_='scrname').text,
 									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
-								}
+									}
 
-							print(item)
-							results.append(item) # <--- add to global list
-							write_item_to_csv(item)
+								print(item)
+								results.append(item) # <--- add to global list
+								write_item_to_csv(item)
 							#~ yield item
 							#for key,val in item.items():
 								#print(key, ':', val)
@@ -153,5 +157,10 @@ def review_photo_titles():
 
 
 results = review_photo_titles()
-hotel_info_to_csv(results)
+print("")
+print("")
+print("")
+print("")
+print("")
+#hotel_info_to_csv(results)
 
