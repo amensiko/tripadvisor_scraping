@@ -154,4 +154,6 @@ def review_photo_titles():
 
 results = review_photo_titles()
 hotel_info_to_csv(results)
+#https://www.tripadvisor.com/Hotel_Review-g28970-d84078-Reviews-or15-Hyatt_Regency_Washington_on_Capitol_Hill-Washington_DC_District_of_Columbia.html
+
 
