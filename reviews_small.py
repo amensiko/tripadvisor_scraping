@@ -1,6 +1,5 @@
 import urllib.request, urllib.parse, urllib.error
 from bs4 import BeautifulSoup, Comment
-from selenium import webdriver
 import ssl
 import json
 import re
@@ -9,6 +8,9 @@ import warnings
 import requests
 import csv
 from lxml import html
+import geopy
+from geopy import geocoders
+from geopy.geocoders import Nominatim
 
 if not sys.warnoptions:
 	warnings.simplefilter("ignore")#For ignoring SSL certificate errors
@@ -17,35 +19,17 @@ if not sys.warnoptions:
 	ctx.verify_mode = ssl.CERT_NONE# url = input('Enter url - ' )
 
 
-def hotel_info_to_json(soup):
+def hotel_name_address_geoloc(soup):
 	hotel_json = {}
 	for line in soup.find_all('script',attrs={"type" : "application/ld+json"}):
 		details = line.text.strip()
 		details = json.loads(details)
-
-		hotel_json["name"] = details["name"]
-		details["priceRange"] = details["priceRange"].replace("₹ ","Rs ")
-		details["priceRange"] = details["priceRange"].replace("₹","Rs ")
-		hotel_json["priceRange"] = details["priceRange"]
-		hotel_json["aggregateRating"]={}
-		hotel_json["aggregateRating"]["ratingValue"]=details["aggregateRating"]["ratingValue"]
-		hotel_json["aggregateRating"]["reviewCount"]=details["aggregateRating"]["reviewCount"]
+		name = details["name"]
+		address = details["address"]["streetAddress"] + ", " + details["address"]["addressLocality"] + ", " + details["address"]["addressRegion"] + ", " + details["address"]["postalCode"] + ", " + details["address"]["addressCountry"]["name"]
 		break
-	hotel_json["reviews"]=[]
-	for line in soup.find_all('p',attrs={"class" : "partial_entry"}):
-		review = line.text.strip()
-		if review != "":
-			review = line.text.strip()
-		if review.endswith( "More" ):
-			review = review[:-4]
-		if review.startswith("Dear"):
-			continue
-		review = review.replace('\r', ' ').replace('\n', ' ')
-		review = ' '.join(review.split())
-		hotel_json["reviews"].append(review)
-
-	with open(hotel_json["name"].replace('/', '') + ".json", 'w') as outfile:
-		json.dump(hotel_json, outfile, indent=4)
+	if address == None:
+		return(name, address, None)
+	return(name, address, geoloc(address))
 
 
 def hotel_info_to_csv(results):
@@ -65,9 +49,24 @@ def write_item_to_csv(item):
 
 def write_items_to_csv(list_of_items):
 	print(list_of_items)
-	with open('full_photo_reviews_dc.csv', 'a') as res_file:
+	with open('full_photo_reviews_geoloc_dc.csv', 'a') as res_file:
 		csv_out = csv.writer(res_file)
 		csv_out.writerow(list_of_items)
+
+
+def geoloc(locat):
+    # Disable SSL certificate verification
+    try:
+        _create_unverified_https_context = ssl._create_unverified_context
+    except AttributeError:
+        pass
+    else:
+        ssl._create_default_https_context = _create_unverified_https_context
+    geopy.geocoders.options.default_user_agent = 'my_app/1'
+    geopy.geocoders.options.default_timeout = 7
+    geolocator = Nominatim()
+    location = geolocator.geocode(locat)
+    return (location.latitude, location.longitude)
 
 
 def getPageReviewsWithPhoto(url):
@@ -95,7 +94,6 @@ def getPageReviewsWithPhoto(url):
 
 			reviews += review.attrs['data-reviewid']
 
-	hotels = []
 	titles = []
 	items = []
 	if len(reviews) > 0:
@@ -163,12 +161,9 @@ def reviews_dc():
 					count += 1
 					page_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page, context=ctx).read()
 					soup = BeautifulSoup(page_response,	"html.parser")
+
+					hnag = hotel_name_address_geoloc(soup)
 			
-				#Find the last page of reviews for a given hotel
-				#for link in soup.find_all('a', {'class': ['last', 'pageNum']}):
-				#	page_number = link.get('data-page-number')
-					#print('**********', page_number)
-				#	last_offset_rev = int(page_number) * 5
 					last_offset_rev = 0
 				
 					for link in soup.select('a.last.pageNum'):
@@ -189,10 +184,18 @@ def reviews_dc():
 						items = getPageReviewsWithPhoto(url) #for one page of reviews
 						res = []
 						res.append(url)
-						if soup.find('h1', {'class': 'ui_header'}) != None:
-							res.append(soup.find('h1', {'class': 'ui_header'}).text)
-						else:
-							res.append("No name")
+						z = 0
+						for d in hnag:
+							if z == 2:
+								for l in d:
+									res.append(l)
+							else:
+								res.append(d)
+							z += 1
+						#if soup.find('h1', {'class': 'ui_header'}) != None:
+						#	res.append(soup.find('h1', {'class': 'ui_header'}).text)
+						#else:
+						#	res.append("No name")
 						if len(items) == 2:
 							for i in items:
 								res.append("".join(i))
@@ -205,8 +208,6 @@ def reviews_dc():
 								stringt += "".join(i) + ' '
 								c += 0
 							res.append(stringt)
-								#res.append(merge(i))
-								#i[1:len(i)] = [''.join(i[1:len(i)])]
 						if len(items[0]) > 0:
 							results.append(res)
 							write_items_to_csv(res)
