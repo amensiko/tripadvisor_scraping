@@ -157,10 +157,5 @@ def review_photo_titles():
 
 
 results = review_photo_titles()
-print("")
-print("")
-print("")
-print("")
-print("")
 #hotel_info_to_csv(results)
 

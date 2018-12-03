@@ -50,7 +50,7 @@ def hotel_info_to_json(soup):
 
 def hotel_info_to_csv(results):
 	keys = results[0].keys()
-	with open('photo_titles_dc_small3.csv', 'w') as res_file:
+	with open('photo_titles_dc_small.csv', 'w') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writeheader()
 		dict_writer.writerows(results)
@@ -58,9 +58,16 @@ def hotel_info_to_csv(results):
 
 def write_item_to_csv(item):
 	keys = item.keys()
-	with open('photo_titles_dc_small_v2.csv', 'a') as res_file:
+	with open('photo_titles_dc_small.csv', 'a') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writerow(item)
+
+
+def write_items_to_csv(list_of_items):
+	print(list_of_items)
+	with open('full_photo_reviews_dc.csv', 'a') as res_file:
+		csv_out = csv.writer(res_file)
+		csv_out.writerow(list_of_items)
 
 
 def getPageReviewsWithPhoto(url):
@@ -112,20 +119,13 @@ def getPageReviewsWithPhoto(url):
 		# remove response
 		[s.extract() for s in soup('div', 'mgrRspnInline')]
 
-		if soup.find('h1', {'class': 'ui_header'}) != None:
-			hotels.append(soup.find('h1', {'class': 'ui_header'}).text)
-		else:
-			hotels.append("No name")
-
 		titles.append(review.find('span', class_='noQuotes').text)
 
 		for review in soup.find_all("p", "partial_entry"):
 			items.append( review.text.strip() )
-	print("HOTELS: ", hotels)
-	print("TITLES: ", titles)
-	print("REVIEWS: ", items)
-	#return items
-	return(hotels, titles, items)
+
+
+	return(titles, items)
 
 
 
@@ -177,7 +177,7 @@ def reviews_dc():
 
 					print("REVIEW OFFSET: ", last_offset_rev)
 
-					for review_offset in range(0, last_offset_rev+1, 5):#range(0, 50, 5): #for review_offset in range(0, last_offset_rev+1, 5):
+					for review_offset in range(0, 50, 5): #for review_offset in range(0, last_offset_rev+1, 5):
 						print('--- review page offset:', review_offset, '---')
 						ind = next_page.find("Reviews")
 
@@ -186,17 +186,35 @@ def reviews_dc():
 						soup = BeautifulSoup(r.text, "html.parser")
 						print(url)
 						print("")
-						items = getPageReviewsWithPhoto(url)
-						results.append(items)
+						items = getPageReviewsWithPhoto(url) #for one page of reviews
+						res = []
+						res.append(url)
+						if soup.find('h1', {'class': 'ui_header'}) != None:
+							res.append(soup.find('h1', {'class': 'ui_header'}).text)
+						else:
+							res.append("No name")
+						if len(items) == 2:
+							for i in items:
+								res.append("".join(i))
+						else:
+							stringt = ''
+							c = 0
+							for i in items:
+								if c == 0:
+									continue
+								stringt += "".join(i) + ' '
+								c += 0
+							res.append(stringt)
+								#res.append(merge(i))
+								#i[1:len(i)] = [''.join(i[1:len(i)])]
+						if len(items[0]) > 0:
+							results.append(res)
+							write_items_to_csv(res)
+
 	return results
 
 
 
 results = reviews_dc()
-print("")
-print(results)
-print("")
-print("")
-print("")
 #hotel_info_to_csv(results)
 

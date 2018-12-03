@@ -50,7 +50,7 @@ def hotel_info_to_json(soup):
 
 def hotel_info_to_csv(results):
 	keys = results[0].keys()
-	with open('photo_titles_dc.csv', 'w') as res_file:
+	with open('photo_titles_dc_small.csv', 'w') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writeheader()
 		dict_writer.writerows(results)
@@ -58,12 +58,77 @@ def hotel_info_to_csv(results):
 
 def write_item_to_csv(item):
 	keys = item.keys()
-	with open('photo_titles_dc_v2.csv', 'a') as res_file:
+	with open('photo_titles_dc_small.csv', 'a') as res_file:
 		dict_writer = csv.DictWriter(res_file, keys)
 		dict_writer.writerow(item)
 
 
-def review_photo_titles():
+def write_items_to_csv(list_of_items):
+	print(list_of_items)
+	with open('full_photo_reviews_dc.csv', 'a') as res_file:
+		csv_out = csv.writer(res_file)
+		csv_out.writerow(list_of_items)
+
+
+def getPageReviewsWithPhoto(url):
+	s = requests.Session()
+	s.headers.update({
+		'accept': 'text/html, */*; q=0.01',
+		#'accept-encoding': 'gzip, deflate, br',
+		'dnt': '1',
+		'origin': 'https://www.tripadvisor.ca',
+		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
+		'pragma': 'no-cache',
+		'cache-control': 'no-cache',
+		'upgrade-insecure-requests': '1'
+	})
+	req = s.get(url)
+	soup = BeautifulSoup(req.text, "html.parser")
+
+  # collect review ids what has photo
+	reviews = ''
+	for review in soup.find_all("div", "reviewSelector"):
+		photos = review.find_all("div", "photoContainer")
+		if len(photos) > 0:
+			if len(reviews) > 0 :
+				reviews += ','
+
+			reviews += review.attrs['data-reviewid']
+
+	hotels = []
+	titles = []
+	items = []
+	if len(reviews) > 0:
+		headers = {
+			'content-type': 'application/x-www-form-urlencoded',
+			'referer': url
+		}
+
+		form_data = {
+			'reviews': reviews,
+			'contextChoice': 'DETAIL_HR',
+			'loadMtHeader': 'true',
+			'haveJses': 'earlyRequireDefine,amdearly,global_error,long_lived_global,apg-Hotel_Review,apg-Hotel_Review-in,bootstrap,desktop-rooms-guests-dust-en_CA,responsive-calendar-templates-dust-en_CA,responsive-heatmap-calendar-templates-dust-en_CA,@ta/common.global,@ta/tracking.interactions,@ta/public.maps,@ta/overlays.managers,@ta/overlays.headers,@ta/overlays.shift,@ta/common.overlays,@ta/overlays.toast,@ta/trips.save-to-trip,social.share-cta,@ta/trips.trip-link,@ta/media.image,cross-sells.results-from-featured,@ta/social.review-inline-follow-widget,@ta/hotels.hotel-review-new-hotel-preview,@ta/hotels.hotel-review-new-hotel-banner,@ta/common.typeahead,@ta/common.media,@ta/hotels.hotel-review-atf-photos-2018-redesign,@ta/maps.snapshot,@ta/hotels.tags,hotels.hotel-review-overview,hotels.hotel-review-roomtips,hotels.hotel-review-photos,@ta/platform.runtime,masthead_search_late_load,taevents,p13n_masthead_search__deferred__lateHandlers',
+			'haveCsses': 'apg-Hotel_Review-in,responsive_calendars_corgi',
+			'Action': 'install'
+		}
+
+		req = s.post('https://www.tripadvisor.ca/OverlayWidgetAjax?Mode=EXPANDED_HOTEL_REVIEWS_RESP&metaReferer=', data = form_data, headers = headers)
+		soup = BeautifulSoup(req.text, "html.parser")
+
+		# remove response
+		[s.extract() for s in soup('div', 'mgrRspnInline')]
+
+		titles.append(review.find('span', class_='noQuotes').text)
+
+		for review in soup.find_all("p", "partial_entry"):
+			items.append( review.text.strip() )
+
+
+	return(titles, items)
+
+
+def reviews_dc():
 	offset = 0
 	url = 'https://www.tripadvisor.com/Hotels-g28970-oa' + str(offset) + '-Washington_DC_District_of_Columbia-Hotels.html'
 
@@ -95,13 +160,8 @@ def review_photo_titles():
 			for next_page in links:
 				page_response = urllib.request.urlopen("https://www.tripadvisor.com" + next_page, context=ctx).read()
 				soup = BeautifulSoup(page_response,	"html.parser")
-			
-				#Find the last page of reviews for a given hotel
-				#for link in soup.find_all('a', {'class': ['last', 'pageNum']}):
-				#	page_number = link.get('data-page-number')
-					#print('**********', page_number)
-				#	last_offset_rev = int(page_number) * 5
 				
+				last_offset_rev = 0
 				for link in soup.select('a.last.pageNum'):
 					if link.get('href') != '':
 						last_offset_rev = int(link.text) * 5
@@ -115,45 +175,34 @@ def review_photo_titles():
 					url = "https://www.tripadvisor.com" + next_page[:ind+7] + "-or" + str(review_offset) + next_page[ind+7:]
 					r = requests.get(url)
 					soup = BeautifulSoup(r.text, "html.parser")
+					print(url)
+					print("")
+					items = getPageReviewsWithPhoto(url) #for one page of reviews
+					res = []
+					res.append(url)
+					if soup.find('h1', {'class': 'ui_header'}) != None:
+						res.append(soup.find('h1', {'class': 'ui_header'}).text)
+					else:
+						res.append("No name")
+					if len(items) == 2:
+						for i in items:
+							res.append("".join(i))
+					else:
+						stringt = ''
+						c = 0
+						for i in items:
+							if c == 0:
+								continue
+							stringt += "".join(i) + ' '
+							c += 0
+						res.append(stringt)
+					if len(items[0]) > 0:
+						results.append(res)
+						write_items_to_csv(res)
 
-					for idx, review in enumerate(soup.find_all('div', class_='review-container')):
-						photo_present = review.findAll('div', {'class': 'photoContainer'})
-						if photo_present:
-							if soup.find('h1', {'class': 'ui_header'}) != None:
-								item = {
-									'url': url,
-									'hotel_name': soup.find('h1', {'class': 'ui_header'}).text,#soup.find('h1', class_='heading_title'),
-									'review_title': review.find('span', class_='noQuotes').text,
-									'review_body': review.find('p', class_='partial_entry').text,
-									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
-									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
-									#'reviewer_name': review.find('span', class_='scrname').text,
-									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
-								}
-							else:
-								item = {
-									'url': url,
-									'hotel_name': 'None',
-									'review_title': review.find('span', class_='noQuotes').text,
-									'review_body': review.find('p', class_='partial_entry').text,
-									#'review_date': review.find('span', class_='relativeDate')['title'],#.text,#[idx],
-									'num_reviews_reviewer': review.find('span', class_='badgetext').text,
-									#'reviewer_name': review.find('span', class_='scrname').text,
-									#'bubble_rating': review.select_one('div.reviewItemInline span.ui_bubble_rating')['class'][1][7:],
-								}
-
-							print(item)
-							results.append(item) # <--- add to global list
-							write_item_to_csv(item)
-							#~ yield item
-							#for key,val in item.items():
-								#print(key, ':', val)
-							#print('----')
 	return results
 
 
-results = review_photo_titles()
-hotel_info_to_csv(results)
-#https://www.tripadvisor.com/Hotel_Review-g28970-d84078-Reviews-or15-Hyatt_Regency_Washington_on_Capitol_Hill-Washington_DC_District_of_Columbia.html
 
-
+results = reviews_dc()
+#hotel_info_to_csv(results)
