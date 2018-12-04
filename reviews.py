@@ -31,6 +31,8 @@ def geoloc(locat):
     geopy.geocoders.options.default_timeout = 7
     geolocator = Nominatim()
     location = geolocator.geocode(locat)
+    if location == None:
+    	return (None, None)
     return (location.latitude, location.longitude)
 
 
@@ -43,7 +45,7 @@ def hotel_name_address_geoloc(soup):
 		address = details["address"]["streetAddress"] + ", " + details["address"]["addressLocality"] + ", " + details["address"]["addressRegion"] + ", " + details["address"]["postalCode"] + ", " + details["address"]["addressCountry"]["name"]
 		break
 	if address == None:
-		return(name, address, None)
+		return(name, address, (None, None))
 	return(name, address, geoloc(address))
 
 
@@ -64,7 +66,7 @@ def write_item_to_csv(item):
 
 def write_items_to_csv(list_of_items):
 	print(list_of_items)
-	with open('full_photo_reviews_geoloc_dc.csv', 'a') as res_file:
+	with open('full_photo_reviews_geoloc_dc1.csv', 'a') as res_file:
 		csv_out = csv.writer(res_file)
 		csv_out.writerow(list_of_items)
 
